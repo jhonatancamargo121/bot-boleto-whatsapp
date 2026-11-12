@@ -1,0 +1,42 @@
+services:
+  agente01-postgres:
+    image: postgres:16-alpine
+    container_name: agente01-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: agente01
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+      POSTGRES_DB: agente01
+    volumes:
+      - agente01_pgdata:/var/lib/postgresql/data
+    networks:
+      - natela-control_default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agente01"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  agente01-bot:
+    build: .
+    container_name: agente01-bot
+    restart: always
+    env_file: .env
+    depends_on:
+      agente01-postgres:
+        condition: service_healthy
+    expose:
+      - "3000"
+    networks:
+      - natela-control_default
+
+volumes:
+  agente01_pgdata:
+
+# Reusa a rede docker existente onde estao o nginx (natela_nginx) e a Evolution
+# (assistente-evolution): o nginx alcanca o bot por http://agente01-bot:3000,
+# o bot alcanca a Evolution por http://assistente-evolution:8080 e o Postgres
+# por agente01-postgres:5432.
+networks:
+  natela-control_default:
+    external: true
